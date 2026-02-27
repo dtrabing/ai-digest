@@ -124,6 +124,15 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .btn-ask { padding: 11px 18px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
 .btn-ask:hover { background: #fff; }
 .btn-ask:disabled { opacity: 0.4; cursor: not-allowed; }
+/* API KEY SCREEN */
+#apikey-screen { display: none; flex-direction: column; align-items: center; padding: 60px 20px; gap: 24px; text-align: center; }
+.apikey-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--accent); }
+.apikey-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2); line-height: 1.8; max-width: 400px; }
+.apikey-input { width: 100%; max-width: 420px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s; }
+.apikey-input:focus { border-color: var(--accent); }
+.btn-save-key { padding: 13px 32px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
+.btn-save-key:hover { background: #fff; }
+.apikey-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); max-width: 380px; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -141,6 +150,13 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 <div class="story-count" id="story-count"></div>
 </div>
 </header>
+<div id="apikey-screen">
+<div class="apikey-title">Enter Your API Key</div>
+<div class="apikey-sub">AI Digest needs your Anthropic API key to fetch news and answer questions. It's saved only in your browser — never sent anywhere else.</div>
+<input type="password" class="apikey-input" id="apikey-input" placeholder="sk-ant-..." />
+<button class="btn-save-key" onclick="saveKey()">Save &amp; Launch</button>
+<div class="apikey-note">Get a key at console.anthropic.com → API Keys. You only need to do this once.</div>
+</div>
 <div id="loading-screen">
 <div class="load-animation">
 <div class="load-bar"></div><div class="load-bar"></div><div class="load-bar"></div>
@@ -187,8 +203,19 @@ let isSpeaking = false;
 let isAnswering = false;
 let storyQA = {};
 const RATE = 1.28;
+let API_KEY = '';
+// ── API KEY ───────────────────────────────────────────────────────────────────
+function saveKey() {
+  const k = document.getElementById('apikey-input').value.trim();
+  if (!k.startsWith('sk-ant-')) { alert('That doesn\'t look like a valid Anthropic API key (should start with sk-ant-).'); return; }
+  localStorage.setItem('anthropic_key', k);
+  API_KEY = k;
+  init();
+}
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
+API_KEY = localStorage.getItem('anthropic_key') || '';
+if (!API_KEY) { show('apikey'); return; }
 setStatus('loading','Fetching news');
 show('loading');
 document.getElementById('date-line').textContent =
@@ -207,6 +234,7 @@ setStatus('done','Error');
   }
 }
 function show(name) {
+document.getElementById('apikey-screen').style.display = name==='apikey' ? 'flex' : 'none';
 document.getElementById('loading-screen').style.display = name==='loading' ? 'flex' : 'none';
 document.getElementById('error-screen').style.display = name==='error' ? 'block' : 'none';
 document.getElementById('stories-container').style.display = name==='stories' ? 'block' : 'none';
@@ -223,7 +251,7 @@ async function fetchDigest() {
 const today = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 const resp = await fetch('https://api.anthropic.com/v1/messages', {
 method: 'POST',
-headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
+headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': API_KEY },
 body: JSON.stringify({
 model: 'claude-sonnet-4-20250514',
 max_tokens: 4000,
@@ -375,7 +403,7 @@ const prev = (storyQA[currentIdx] || []).map(p => `Q: ${p.q}\nA: ${p.a}`).join('
 const context = `Story: "${story.headline}"\n${story.summary}${prev ? '\n\nPrior Q&A:\n'+prev : ''}`;
 const resp = await fetch('https://api.anthropic.com/v1/messages', {
 method: 'POST',
-headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
+headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': API_KEY },
 body: JSON.stringify({
 model: 'claude-sonnet-4-20250514',
 max_tokens: 400,
